@@ -25,7 +25,7 @@ if [ -z "$IPA_ADMIN_PASS" ]; then
 fi
 
 # FQDN（完全修飾ドメイン名）を取得
-HOSTNAME=$(hostname -f)
+HOSTNAME=$(hostname -f | tr '[:upper:]' '[:lower:]')
 
 log_info "Starting FreeIPA client installation for ${HOSTNAME}..."
 
