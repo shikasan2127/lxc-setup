@@ -1,0 +1,8 @@
+# SSH秘密鍵（絶対にコミットしない）
+lxc_template_key*
+
+# レガシー方式の生成ファイル
+start*
+cleanup*
+*.service
+*.env
