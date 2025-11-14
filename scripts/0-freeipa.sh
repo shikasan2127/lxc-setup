@@ -29,6 +29,13 @@ HOSTNAME=$(hostname -f | tr '[:upper:]' '[:lower:]')
 
 log_info "Starting FreeIPA client installation for ${HOSTNAME}..."
 
+if ipa-client-install --version >/dev/null 2>&1; then
+    if [ -f /etc/ipa/default.conf ]; then
+        echo "[INFO] FreeIPA client already configured, skipping..."
+        exit 0
+    fi
+fi
+
 # 必要なパッケージのインストール
 log_info "Installing required packages..."
 apt-get update
