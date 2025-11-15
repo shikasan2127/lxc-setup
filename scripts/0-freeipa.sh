@@ -11,9 +11,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/logging.sh"
 
 # FreeIPA設定パラメータ
-REALM="EXAMPLE.HOME"
-DOMAIN="example.home"
-IPA_SERVER="ipa.example.home"
+REALM="KAJILAB.LOCAL"
+DOMAIN="kajilab.local"
+IPA_SERVER="ipa.kajilab.local"
 ADMIN_USER="admin"
 ADMIN_PASS="$IPA_ADMIN_PASS"
 
