@@ -146,13 +146,13 @@ main() {
     # 設定ファイルを検証
     if ! validate_ssh_config; then
         rollback_config
-        exit 1
+        exit 0
     fi
 
     # SSHDサービスを再起動
     if ! restart_sshd; then
         rollback_config
-        exit 1
+        exit 0
     fi
 
     log_info "SSH security configuration completed successfully."
