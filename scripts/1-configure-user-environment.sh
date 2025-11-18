@@ -60,8 +60,8 @@ else
 fi
 
 # 権限設定
-# chown admin:ipausers "${HOME_DIR}"
-chmod 777 "${HOME_DIR}"
+chown admin:ipausers "${HOME_DIR}"
+chmod 775 "${HOME_DIR}"
 log_info "Home directory permissions configured"
 
 # SSSDサービスの再起動
