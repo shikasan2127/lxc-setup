@@ -25,10 +25,11 @@ if [ -z "$IPA_ADMIN_PASS" ]; then
 fi
 
 # FQDN（完全修飾ドメイン名）を取得
-HOSTNAME=$(hostname -f | tr '[:upper:]' '[:lower:]')
+HOSTNAME=$(hostname -f)
 
 log_info "Starting FreeIPA client installation for ${HOSTNAME}..."
 
+# IPAクライアントがインストール済みの場合はスキップ
 if ipa-client-install --version >/dev/null 2>&1; then
     if [ -f /etc/ipa/default.conf ]; then
         echo "[INFO] FreeIPA client already configured, skipping..."
@@ -41,9 +42,7 @@ log_info "Installing required packages..."
 apt-get update
 apt-get install -y freeipa-client
 
-# FreeIPAクライアントの自動インストール
-# --unattended: 対話的な設定を無効化
-# --force-join: 既存の設定があっても強制的に参加
+# IPAクライアントのインストール
 log_info "Installing FreeIPA client..."
 ipa-client-install \
     --unattended \
@@ -55,12 +54,11 @@ ipa-client-install \
     --realm="${REALM}" \
     --force-join \
     --no-ntp \
+    --no-sshd \
     --enable-dns-updates
-
-log_info "FreeIPA client installation completed for ${HOSTNAME}."
 
 # セキュリティのため環境変数をクリア
 unset ADMIN_PASS
 unset IPA_ADMIN_PASS
 
-log_info "FreeIPA client installation process completed successfully."
+log_info "FreeIPA client installation completed successfully."

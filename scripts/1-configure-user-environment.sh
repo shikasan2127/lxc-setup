@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/logging.sh"
 
 # ホスト名とホームディレクトリの設定
-HOSTNAME=$(hostname)
+HOSTNAME=$(hostname -s)
 HOME_DIR="/home/${HOSTNAME}"
 
 log_info "Starting user environment configuration for ${HOSTNAME}..."
