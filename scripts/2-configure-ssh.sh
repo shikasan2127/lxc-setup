@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# SSH設定スクリプト
+# SSHD設定スクリプト
 # パスワード認証を無効化し、鍵認証のみを許可する
+# /etc/ssh/sshd_config.d/ 配下に設定ファイルを作成
 
 set -e
 
@@ -11,11 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ログ関数を読み込み
 source "${SCRIPT_DIR}/lib/logging.sh"
 
-# SSH設定ファイルのパス
-SSHD_CONFIG="/etc/ssh/sshd_config"
-SSHD_CONFIG_BACKUP="${SSHD_CONFIG}.bak"
+# SSHD設定ファイルのパス
+SSHD_CONFIG_DIR="/etc/ssh/sshd_config.d"
+SSHD_CONFIG_FILE="${SSHD_CONFIG_DIR}/99-security.conf"
 
-log_info "Starting SSH security configuration..."
+log_info "Starting SSHD security configuration..."
 
 # root権限チェック
 if [ "$EUID" -ne 0 ]; then
@@ -23,142 +24,93 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# SSH設定の構成
-configure_ssh() {
-    log_info "Configuring SSH security settings..."
-
-    # sshd_configのバックアップを作成
-    if [ ! -f "$SSHD_CONFIG_BACKUP" ]; then
-        log_info "Creating backup of sshd_config..."
-        cp "$SSHD_CONFIG" "$SSHD_CONFIG_BACKUP"
-        log_info "Backup created at ${SSHD_CONFIG_BACKUP}"
-    else
-        log_warn "Backup already exists at ${SSHD_CONFIG_BACKUP}"
-    fi
-
-    # パスワード認証を無効化
-    log_info "Disabling password authentication..."
-
-    # PasswordAuthenticationの設定を変更
-    if grep -q "^PasswordAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' "$SSHD_CONFIG"
-        sed -i 's/^PasswordAuthentication no/PasswordAuthentication no/' "$SSHD_CONFIG"
-    elif grep -q "^#PasswordAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' "$SSHD_CONFIG"
-        sed -i 's/^#PasswordAuthentication no/PasswordAuthentication no/' "$SSHD_CONFIG"
-    else
-        echo "PasswordAuthentication no" >> "$SSHD_CONFIG"
-    fi
-
-    # ChallengeResponseAuthenticationを無効化（古い設定名）
-    if grep -q "ChallengeResponseAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^#*ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/' "$SSHD_CONFIG"
-        sed -i 's/^#*ChallengeResponseAuthentication no/ChallengeResponseAuthentication no/' "$SSHD_CONFIG"
-    fi
-
-    # KbdInteractiveAuthenticationを無効化（新しい設定名）
-    if grep -q "^KbdInteractiveAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^KbdInteractiveAuthentication yes/KbdInteractiveAuthentication no/' "$SSHD_CONFIG"
-    elif grep -q "^#KbdInteractiveAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^#KbdInteractiveAuthentication yes/KbdInteractiveAuthentication no/' "$SSHD_CONFIG"
-        sed -i 's/^#KbdInteractiveAuthentication no/KbdInteractiveAuthentication no/' "$SSHD_CONFIG"
-    else
-        echo "KbdInteractiveAuthentication no" >> "$SSHD_CONFIG"
-    fi
-
-    # 公開鍵認証を明示的に有効化
-    if grep -q "^PubkeyAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^PubkeyAuthentication no/PubkeyAuthentication yes/' "$SSHD_CONFIG"
-    elif grep -q "^#PubkeyAuthentication" "$SSHD_CONFIG"; then
-        sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' "$SSHD_CONFIG"
-        sed -i 's/^#PubkeyAuthentication no/PubkeyAuthentication yes/' "$SSHD_CONFIG"
-    else
-        echo "PubkeyAuthentication yes" >> "$SSHD_CONFIG"
-    fi
-
-    log_info "SSH configuration changes applied:"
-    log_info "  - PasswordAuthentication: no"
-    log_info "  - KbdInteractiveAuthentication: no"
-    log_info "  - PubkeyAuthentication: yes"
-}
-
-# 設定ファイルの検証
-validate_ssh_config() {
-    log_info "Validating SSH configuration..."
-
-    if sshd -t 2>&1; then
-        log_info "SSH configuration is valid."
-        return 0
-    else
-        log_error "SSH configuration validation failed!"
-        return 1
-    fi
-}
-
-# SSHDサービスの再起動
-restart_sshd() {
-    log_info "Restarting SSH service..."
-
-    # sshdまたはsshサービス名を判定
-    if systemctl list-units --type=service | grep -q "sshd.service"; then
-        SERVICE_NAME="sshd"
-    elif systemctl list-units --type=service | grep -q "ssh.service"; then
-        SERVICE_NAME="ssh"
-    else
-        log_error "SSH service not found"
-        return 1
-    fi
-
-    if systemctl restart "$SERVICE_NAME"; then
-        log_info "SSH service (${SERVICE_NAME}) restarted successfully."
-
-        # サービスの状態を確認
-        if systemctl is-active --quiet "$SERVICE_NAME"; then
-            log_info "SSH service is active and running."
-            return 0
-        else
-            log_error "SSH service failed to start properly."
-            return 1
-        fi
-    else
-        log_error "Failed to restart SSH service."
-        return 1
-    fi
-}
-
 # ロールバック関数
 rollback_config() {
-    log_error "Rolling back to previous configuration..."
-    if [ -f "$SSHD_CONFIG_BACKUP" ]; then
-        cp "$SSHD_CONFIG_BACKUP" "$SSHD_CONFIG"
+    log_error "Rolling back configuration..."
+    if [ -f "$SSHD_CONFIG_FILE" ]; then
+        rm -f "$SSHD_CONFIG_FILE"
         systemctl restart sshd || systemctl restart ssh
-        log_info "Configuration rolled back successfully."
+        log_info "Configuration file removed and SSH service restarted."
     else
-        log_error "No backup found for rollback!"
+        log_error "Configuration file not found!"
     fi
 }
 
-# メイン処理
-main() {
-    # SSH設定を構成
-    configure_ssh
+# sshd_config.d ディレクトリの存在確認
+if [ ! -d "$SSHD_CONFIG_DIR" ]; then
+    log_error "Directory ${SSHD_CONFIG_DIR} does not exist."
+    log_error "Your SSH version may not support sshd_config.d."
+    exit 1
+fi
 
-    # 設定ファイルを検証
-    if ! validate_ssh_config; then
-        rollback_config
-        exit 0
-    fi
+# 設定ファイルを作成
+log_info "Creating SSHD configuration file at ${SSHD_CONFIG_FILE}..."
 
-    # SSHDサービスを再起動
-    if ! restart_sshd; then
-        rollback_config
-        exit 0
-    fi
+cat > "$SSHD_CONFIG_FILE" << 'EOF'
+# SSHD Security Configuration
+# Generated by ct-server-setup
 
-    log_info "SSH security configuration completed successfully."
-    log_warn "WARNING: Password authentication is now disabled."
-    log_warn "Make sure you have SSH key access configured before disconnecting!"
-}
+# パスワード認証を無効化
+PasswordAuthentication no
 
-# スクリプト実行
-main
+# キーボードインタラクティブ認証を無効化
+KbdInteractiveAuthentication no
+
+# 公開鍵認証を有効化
+PubkeyAuthentication yes
+
+# SSSD経由で公開鍵を取得
+AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys
+AuthorizedKeysCommandUser nobody
+EOF
+
+chmod 600 "$SSHD_CONFIG_FILE"
+
+log_info "SSHD configuration file created:"
+log_info "  - PasswordAuthentication: no"
+log_info "  - KbdInteractiveAuthentication: no"
+log_info "  - PubkeyAuthentication: yes"
+log_info "  - AuthorizedKeysCommand: /usr/bin/sss_ssh_authorizedkeys"
+log_info "  - AuthorizedKeysCommandUser: nobody"
+
+# 設定ファイルの検証
+log_info "Validating SSHD configuration..."
+if ! sshd -t 2>&1; then
+    log_error "SSHD configuration validation failed!"
+    rollback_config
+    exit 1
+fi
+log_info "SSHD configuration is valid."
+
+# SSHDサービスの再起動
+log_info "Restarting SSHD service..."
+
+# sshdまたはsshサービス名を判定
+if systemctl list-units --type=service | grep -q "sshd.service"; then
+    SERVICE_NAME="sshd"
+elif systemctl list-units --type=service | grep -q "ssh.service"; then
+    SERVICE_NAME="ssh"
+else
+    log_error "SSHD service not found"
+    rollback_config
+    exit 1
+fi
+
+if ! systemctl restart "$SERVICE_NAME"; then
+    log_error "Failed to restart SSHD service."
+    rollback_config
+    exit 1
+fi
+
+# サービスの状態を確認
+if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+    log_error "SSHD service failed to start properly."
+    rollback_config
+    exit 1
+fi
+
+log_info "SSHD service (${SERVICE_NAME}) restarted successfully."
+log_warn "WARNING: Password authentication is now disabled."
+log_warn "Make sure you have SSH key access configured before disconnecting!"
+
+log_info "SSHD security configuration completed successfully."
