@@ -1,0 +1,21 @@
+[Unit]
+Description=Setup LXC on boot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/root
+Type=oneshot
+EnvironmentFile=/usr/bin/setup.env
+RemainAfterExit=true
+ExecStartPre=/bin/touch /var/run/lxc-setup.lock
+ExecStart=/usr/local/bin/start.sh
+ExecStartPost=/usr/local/bin/cleanup.sh
+StandardInput=null
+StandardOutput=append:/var/log/lxc-setup.log
+StandardError=append:/var/log/lxc-setup.log
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
