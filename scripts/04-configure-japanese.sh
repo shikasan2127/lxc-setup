@@ -12,13 +12,17 @@ source "${SCRIPT_DIR}/lib/logging.sh"
 
 log_info "Starting Japanese fonts and locales installation..."
 
+# ホスト名とホームディレクトリを取得
+HOSTNAME=$(hostname -s)
+HOME_DIR="/home/${HOSTNAME}"
+
 # 日本語フォント、ロケールのインストールと設定
 log_info "Installing Japanese fonts and locales..."
 apt-get update
 apt-get install -y fonts-noto-cjk fonts-ipafont
 apt-get install -y language-pack-ja-base language-pack-ja
 locale-gen ja_JP.UTF-8
-echo 'export LC_CTYPE=ja_JP.UTF-8' >>~/.profile
-source ~/.profile
+echo 'export LC_CTYPE=ja_JP.UTF-8' >> "${HOME_DIR}/.bashrc"
+echo 'export LANG=ja_JP.UTF-8' >> "${HOME_DIR}/.bashrc"
 
 log_info "Japanese fonts and locales installation completed successfully."
